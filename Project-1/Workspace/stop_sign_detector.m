@@ -116,6 +116,7 @@ YTest = classify(cifar10Net, testImages);
 
 % Calculate the accuracy.
 accuracy = sum(YTest == testLabels)/numel(testLabels);
+disp(accuracy)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
