@@ -76,7 +76,7 @@ imageFilenames = {
     };
 
 stopSignBoundingBoxes = {
-    [79, 81, 124, 160];
+    [165, 30, 190, 200];
     [208, 20, 351, 158];
     [231, 65, 327, 159];
     [29, 91, 162, 233];
@@ -101,7 +101,7 @@ stopSignsTest = table(imageFilenames', stopSignBoundingBoxes, 'VariableNames', {
 
 for i=1:20
     I = imread(stopSignsTest.imageFilename{i});
-    I = insertObjectAnnotation(I,'Rectangle',stopSignsTest.stopSign{i},'stop sign','LineWidth',8);
+    I = insertObjectAnnotation(I,'Rectangle',stopSignsTest.stopSign{i},'stop sign');
     figure
     imshow(I)
 end
