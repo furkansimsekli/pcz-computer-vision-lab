@@ -5,11 +5,6 @@ url = 'https://www.cs.toronto.edu/~kriz/cifar-10-matlab.tar.gz';
 helperCIFAR10Data.download(url,cifar10Data);
 [trainX, trainY, validationX, validationY, testX, testY] = helperCIFAR10Data.load(cifar10Data);
 
-disp(['Train Dataset Size: ', num2str(size(trainX))]);
-disp(['Validation Dataset Size: ', num2str(size(validationX))]);
-disp(['Test Dataset Size: ', num2str(size(testX))]);
-disp([categories(trainY)]);
-
 [height,width,numChannels, ~] = size(trainX);
 imageSize = [height width numChannels];
 
@@ -44,21 +39,74 @@ opts = trainingOptions('sgdm', ...
     'L2Regularization', 0.004, ...
     'MaxEpochs', 1, ...
     'MiniBatchSize', 128, ...
-    'ValidationData', {validationImages, validationLabels}, ...
+    'ValidationData', {validationX, validationY}, ...
     'ValidationPatience', 10, ...
     'Plots', 'training-progress', ...
     'Verbose', true);
 
-cifar10Net = trainNetwork(trainingImages, trainingLabels, layers, opts);
+% cifar10Net = trainNetwork(trainX, trainY, layers, opts);
 
-% % If you want to load pretrained model, uncomment the line below, and
-% % comment the trainNetwork line above.
-% load('models/cifar10Net.mat');
+% If you want to load pretrained model, uncomment the line below, and
+% comment the trainNetwork line above.
+load('models/cifar10Netv2.mat');
 
 % Testing
-YTest = classify(cifar10Net, testImages);
-cifar10NetAccuracy = sum(YTest == testLabels)/numel(testLabels);
+predY = classify(cifar10Net, testX);
+cifar10NetAccuracy = sum(predY == testY)/numel(testY);
 disp(['cifar10Net Accuracy: ', num2str(cifar10NetAccuracy)]);
+
+% Confusion matrix
+C = confusionmat(testY, predY);
+
+figure;
+confusionChart = confusionchart(C);
+
+% TP, TN, FP, FN
+numClasses = size(C, 1);
+TP = zeros(1, numClasses);
+TN = zeros(1, numClasses);
+FP = zeros(1, numClasses);
+FN = zeros(1, numClasses);
+
+for i = 1:numClasses
+    TP(i) = C(i, i);
+    FP(i) = sum(C(:, i)) - TP(i);
+    FN(i) = sum(C(i, :)) - TP(i);
+    TN(i) = sum(C(:)) - TP(i) - FP(i) - FN(i);
+end
+
+accuracy = zeros(1, numClasses);
+recall = zeros(1, numClasses);
+specificity = zeros(1, numClasses);
+precision = zeros(1, numClasses);
+f1 = zeros(1, numClasses);
+mcc = zeros(1, numClasses);
+
+for i = 1:numClasses
+    accuracy(i) = (TP(i) + TN(i)) / (TP(i) + TN(i) + FP(i) + FN(i));
+    recall(i) = TP(i) / (TP(i) + FN(i));
+    specificity(i) = TN(i) / (TN(i) + FP(i));
+    precision(i) = TP(i) / (TP(i) + FP(i));
+    f1(i) = (2 * TP(i)) / (2 * TP(i) + FP(i) + FN(i));
+    mcc(i) = (TP(i) * TN(i) - FP(i) * FN(i)) / ...
+        (sqrt((TP(i) + FP(i)) * (TP(i) + FN(i)) * ...
+        (TN(i) + FP(i)) * (TN(i) + FN(i))));
+end
+
+% Create a table to display metrics
+metricsTable = table(accuracy', recall', specificity', precision', f1', mcc', ...
+    'VariableNames', {'Accuracy', 'Recall', 'Specificity', 'Precision', 'F1-score', 'MCC'}, ...
+    'RowNames', arrayfun(@(x) sprintf('Class %d', x), 1:numClasses, 'UniformOutput', false));
+
+disp('Metrics Table:');
+disp(metricsTable);
+
+figure;
+uitable('Data', table2cell(metricsTable), 'ColumnName', metricsTable.Properties.VariableNames, ...
+    'RowName', metricsTable.Properties.RowNames, 'Units', 'Normalized', 'Position', [0, 0, 1, 1]);
+
+
+
 
 % -------------------------------------------------------------------------
 % In the other half of the code, I transfered this classifier network to
@@ -66,6 +114,9 @@ disp(['cifar10Net Accuracy: ', num2str(cifar10NetAccuracy)]);
 % specific will be trained for stop sign detection. Training dataset
 % belongs to MATLAB Computer Vision Toolbox.
 % -------------------------------------------------------------------------
+
+
+
 
 % Load the ground truth training data
 data = load('stopSignsAndCars.mat', 'stopSignsAndCars');
@@ -92,16 +143,16 @@ options = trainingOptions('sgdm', ...
     'LearnRateSchedule', 'piecewise', ...
     'LearnRateDropFactor', 0.1, ...
     'LearnRateDropPeriod', 100, ...
-    'MaxEpochs', 1, ...
+    'MaxEpochs', 100, ...
     'Plots', 'training-progress', ...
     'Verbose', true);
 
-rcnn = trainRCNNObjectDetector(stopSignsTrain, cifar10Net, options, ...
-'NegativeOverlapRange', [0 0.3], 'PositiveOverlapRange',[0.5 1]);
+% rcnn = trainRCNNObjectDetector(stopSignsTrain, cifar10Net, options, ...
+% 'NegativeOverlapRange', [0 0.3], 'PositiveOverlapRange',[0.5 1]);
 
-% % If you want to load pretrained model, uncomment the line below, and
-% % comment the trainNetwork line above.
-% load('models/rcnn.mat')
+% If you want to load pretrained model, uncomment the line below, and
+% comment the trainNetwork line above.
+load('models/rcnnv2.mat')
 
 % Testing
 load('datasets/stop-signs/stopSignsTest.mat');
