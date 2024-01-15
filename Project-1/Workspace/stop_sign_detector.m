@@ -6,10 +6,10 @@ helperCIFAR10Data.download(url,cifar10Data);
 
 [trainingImages,trainingLabels,validationImages, validationLabels, testImages,testLabels] = helperCIFAR10Data.load(cifar10Data);
 
-size(trainingImages)
+% size(trainingImages)
 
 numImageCategories = 10;
-categories(trainingLabels)
+% categories(trainingLabels)
 
 % Create the image input layer for 32x32x3 CIFAR-10 images.
 [height,width,numChannels, ~] = size(trainingImages);
@@ -38,8 +38,6 @@ layers = [
     classificationLayer()
 ];
 
-% layers(2).Weights = 0.0001 * randn([filterSize numChannels numFilters]);
-
 % Set the network training options
 opts = trainingOptions('sgdm', ...
     'Momentum', 0.9, ...
@@ -56,22 +54,23 @@ opts = trainingOptions('sgdm', ...
     'Verbose', true);
 
 cifar10Net = trainNetwork(trainingImages, trainingLabels, layers, opts);
+% load('models/cifar10Netv2.mat');
 
-% Extract the first convolutional layer weights
-w = cifar10Net.Layers(2).Weights;
-
-% rescale the weights to the range [0, 1] for better visualization
-w = rescale(w);
-
-figure
-montage(w)
+% % Extract the first convolutional layer weights
+% w = cifar10Net.Layers(2).Weights;
+% 
+% % rescale the weights to the range [0, 1] for better visualization
+% w = rescale(w);
+% 
+% figure
+% montage(w)
 
 % Run the network on the test set.
 YTest = classify(cifar10Net, testImages);
 
 % Calculate the accuracy.
 accuracy = sum(YTest == testLabels)/numel(testLabels);
-disp(accuracy)
+disp(['cifar10Net Accuracy: ', num2str(accuracy)]);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -83,18 +82,17 @@ stopSignsAndCars = data.stopSignsAndCars;
 visiondata = fullfile(toolboxdir('vision'),'visiondata');
 stopSignsAndCars.imageFilename = fullfile(visiondata, stopSignsAndCars.imageFilename);
 
-% Display a summary of the ground truth data
-summary(stopSignsAndCars);
+% % Display a summary of the ground truth data
+% summary(stopSignsAndCars);
 
 % Only keep the image file names and the stop sign ROI labels
-stopSigns = stopSignsAndCars(:, {'imageFilename','stopSign'});
+stopSignsTrain = stopSignsAndCars(:, {'imageFilename','stopSign'});
 
-% Display one training image and the ground truth bounding boxes
-I = imread(stopSigns.imageFilename{1});
-I = insertObjectAnnotation(I,'Rectangle',stopSigns.stopSign{1},'stop sign','LineWidth',8);
-
-figure
-imshow(I)
+% Apparently trainRCNNObjectDetector() doesn't support validation dataset.
+% If in the future, developers get together their mind and stop being lazy
+% you should pass stopSignsValidation as ValidationData in options.
+% I hate MathWorks.
+load('datasets/stop-signs/stopSignsValidation.mat');
 
 % Set training options
 options = trainingOptions('sgdm', ...
@@ -108,22 +106,49 @@ options = trainingOptions('sgdm', ...
     'Verbose', true);
 
 % Train an R-CNN object detector. This will take several minutes.    
-rcnn = trainRCNNObjectDetector(stopSigns, cifar10Net, options, ...
+rcnn = trainRCNNObjectDetector(stopSignsTrain, cifar10Net, options, ...
 'NegativeOverlapRange', [0 0.3], 'PositiveOverlapRange',[0.5 1]);
+% load('models/rcnnv2.mat')
 
-% Read test image
-testImage = imread('stopSignTest.jpg');
+% Testing
+load('datasets/stop-signs/stopSignsTest.mat');
 
-% Detect stop signs
-[bboxes,score,label] = detect(rcnn,testImage,'MiniBatchSize',128);
+total_iou = 0;
 
-% Display the detection results
-[score, idx] = max(score);
+for i=1:size(stopSignsTest, 1)
+    image = imread(stopSignsTest.imageFilename{i});
+    [bboxes, score, label] = detect(rcnn, image, 'MiniBatchSize', 128);
+    [score, idx] = max(score);
+    bbox = bboxes(idx, :);
 
-bbox = bboxes(idx, :);
-annotation = sprintf('%s: (Confidence = %f)', label(idx), score);
+    gT = stopSignsTest.stopSign{i};
+    iou = calculateIoU(gT, bbox);
+    total_iou = total_iou + iou;
 
-outputImage = insertObjectAnnotation(testImage, 'rectangle', bbox, annotation);
+    % % Uncommand below lines, if you want to see the detection in action!
+    % annotation = sprintf('%s: (Confidence = %f)', label(idx), score);
+    % outputImage = insertObjectAnnotation(image, 'rectangle', bbox, annotation);
+    % figure
+    % imshow(outputImage);
+end
 
-figure
-imshow(outputImage);
+test_accuracy = total_iou / size(stopSignsTest, 1);
+disp(['RCNN Accuracy: ', num2str(test_accuracy)]);
+
+function iou = calculateIoU(boxA, boxB)
+    if isempty(boxA) || isempty(boxB)
+        iou = 0;
+        return;
+    end
+
+    xA = max(boxA(1), boxB(1));
+    yA = max(boxA(2), boxB(2));
+    xB = min(boxA(1) + boxA(3), boxB(1) + boxB(3));
+    yB = min(boxA(2) + boxA(4), boxB(2) + boxB(4));
+
+    intersectionArea = max(0, xB - xA + 1) * max(0, yB - yA + 1);
+    boxAArea = boxA(3) * boxA(4);
+    boxBArea = boxB(3) * boxB(4);
+    unionArea = boxAArea + boxBArea - intersectionArea;
+    iou = intersectionArea / unionArea;
+end
