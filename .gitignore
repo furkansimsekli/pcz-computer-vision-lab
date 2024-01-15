@@ -1,4 +1,2 @@
-datasets/
-models/
-screenshots/
+cifar10-batches-mat
 *.asv
