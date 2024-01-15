@@ -22,9 +22,9 @@ imageFilenames = {
     };
 
 stopSignBoundingBoxes = {
-    [9, 110, 140, 240];
-    [43, 60, 258, 273];
-    [113, 88, 201, 179];
+    [9, 110, 140, 140];
+    [43, 60, 235, 273];
+    [113, 88, 100, 100];
     [98, 95, 216, 211];
     [24, 35, 284, 274];
     [58, 24, 331, 295];
@@ -45,12 +45,12 @@ stopSignBoundingBoxes = {
 
 stopSignsValidation = table(imageFilenames', stopSignBoundingBoxes, 'VariableNames', {'imageFilename', 'stopSign'});
 
-for i=1:20
-    I = imread(stopSignsValidation.imageFilename{i});
-    I = insertObjectAnnotation(I,'Rectangle',stopSignsValidation.stopSign{i},'stop sign');
-    figure
-    imshow(I)
-end
+% for i=1:size(stopSignsValidation, 1)
+%     I = imread(stopSignsValidation.imageFilename{i});
+%     I = insertObjectAnnotation(I,'Rectangle',stopSignsValidation.stopSign{i},'stop sign');
+%     figure
+%     imshow(I)
+% end
 
 imageFilenames = {
     'datasets/stop-signs/test/image001.jpg' ...
@@ -77,31 +77,31 @@ imageFilenames = {
 
 stopSignBoundingBoxes = {
     [165, 30, 190, 200];
-    [208, 20, 351, 158];
-    [231, 65, 327, 159];
-    [29, 91, 162, 233];
-    [171, 14, 382, 234];
-    [72, 38, 153, 112];
-    [75, 21, 312, 241];
+    [208, 20, 150, 145];
+    [231, 65, 105, 110];
+    [29, 91, 145, 145];
+    [171, 14, 205, 234];
+    [72, 38, 88, 80];
+    [75, 21, 255, 270];
     [13, 18, 381, 383];
-    [70, 41, 218, 187];
-    [58, 55, 208, 206];
-    [181, 171, 231, 218];
-    [98, 85, 171, 152];
-    [80, 145, 230, 292];
-    [143, 80, 254, 190];
-    [139, 74, 257, 191];
-    [109, 146, 183, 223];
-    [249, 36, 301, 91];
-    [172, 94, 249, 174];
-    [155, 243, 247, 358];
-    [126, 36, 268, 212]};
+    [70, 41, 160, 160];
+    [58, 55, 160, 160];
+    [181, 171, 55, 50];
+    [98, 85, 73, 70];
+    [80, 145, 155, 150];
+    [143, 80, 115, 113];
+    [139, 74, 130, 144];
+    [109, 146, 80, 80];
+    [249, 36, 60, 60];
+    [172, 94, 80, 85];
+    [155, 243, 100, 120];
+    [126, 36, 150, 185]};
 
 stopSignsTest = table(imageFilenames', stopSignBoundingBoxes, 'VariableNames', {'imageFilename', 'stopSign'});
 
-for i=1:20
-    I = imread(stopSignsTest.imageFilename{i});
-    I = insertObjectAnnotation(I,'Rectangle',stopSignsTest.stopSign{i},'stop sign');
-    figure
-    imshow(I)
-end
+% for i=1:size(stopSignsTest, 1)
+%     I = imread(stopSignsTest.imageFilename{i});
+%     I = insertObjectAnnotation(I,'Rectangle',stopSignsTest.stopSign{i},'stop sign');
+%     figure
+%     imshow(I)
+% end
