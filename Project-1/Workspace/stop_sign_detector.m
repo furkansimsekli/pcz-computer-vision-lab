@@ -1,19 +1,16 @@
+% Download and load CIFAR-10 dataset. Please note that, if dataset already
+% exists in the given path, it doesn't download all over again.
 cifar10Data = './datasets';
-
 url = 'https://www.cs.toronto.edu/~kriz/cifar-10-matlab.tar.gz';
-
 helperCIFAR10Data.download(url,cifar10Data);
+[trainX, trainY, validationX, validationY, testX, testY] = helperCIFAR10Data.load(cifar10Data);
 
-[trainingImages,trainingLabels,validationImages, validationLabels, testImages,testLabels] = helperCIFAR10Data.load(cifar10Data);
+disp(['Train Dataset Size: ', num2str(size(trainX))]);
+disp(['Validation Dataset Size: ', num2str(size(validationX))]);
+disp(['Test Dataset Size: ', num2str(size(testX))]);
+disp([categories(trainY)]);
 
-% size(trainingImages)
-
-numImageCategories = 10;
-% categories(trainingLabels)
-
-% Create the image input layer for 32x32x3 CIFAR-10 images.
-[height,width,numChannels, ~] = size(trainingImages);
-
+[height,width,numChannels, ~] = size(trainX);
 imageSize = [height width numChannels];
 
 layers = [
@@ -38,7 +35,6 @@ layers = [
     classificationLayer()
 ];
 
-% Set the network training options
 opts = trainingOptions('sgdm', ...
     'Momentum', 0.9, ...
     'InitialLearnRate', 0.001, ...
@@ -46,7 +42,7 @@ opts = trainingOptions('sgdm', ...
     'LearnRateDropFactor', 0.1, ...
     'LearnRateDropPeriod', 8, ...
     'L2Regularization', 0.004, ...
-    'MaxEpochs', 20, ...
+    'MaxEpochs', 1, ...
     'MiniBatchSize', 128, ...
     'ValidationData', {validationImages, validationLabels}, ...
     'ValidationPatience', 10, ...
@@ -54,27 +50,24 @@ opts = trainingOptions('sgdm', ...
     'Verbose', true);
 
 cifar10Net = trainNetwork(trainingImages, trainingLabels, layers, opts);
-% load('models/cifar10Netv2.mat');
 
-% % Extract the first convolutional layer weights
-% w = cifar10Net.Layers(2).Weights;
-% 
-% % rescale the weights to the range [0, 1] for better visualization
-% w = rescale(w);
-% 
-% figure
-% montage(w)
+% % If you want to load pretrained model, uncomment the line below, and
+% % comment the trainNetwork line above.
+% load('models/cifar10Net.mat');
 
-% Run the network on the test set.
+% Testing
 YTest = classify(cifar10Net, testImages);
+cifar10NetAccuracy = sum(YTest == testLabels)/numel(testLabels);
+disp(['cifar10Net Accuracy: ', num2str(cifar10NetAccuracy)]);
 
-% Calculate the accuracy.
-accuracy = sum(YTest == testLabels)/numel(testLabels);
-disp(['cifar10Net Accuracy: ', num2str(accuracy)]);
+% -------------------------------------------------------------------------
+% In the other half of the code, I transfered this classifier network to
+% RCNN. New network will be trained for object detection, to be more
+% specific will be trained for stop sign detection. Training dataset
+% belongs to MATLAB Computer Vision Toolbox.
+% -------------------------------------------------------------------------
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% Load the ground truth data
+% Load the ground truth training data
 data = load('stopSignsAndCars.mat', 'stopSignsAndCars');
 stopSignsAndCars = data.stopSignsAndCars;
 
@@ -82,8 +75,7 @@ stopSignsAndCars = data.stopSignsAndCars;
 visiondata = fullfile(toolboxdir('vision'),'visiondata');
 stopSignsAndCars.imageFilename = fullfile(visiondata, stopSignsAndCars.imageFilename);
 
-% % Display a summary of the ground truth data
-% summary(stopSignsAndCars);
+summary(stopSignsAndCars);
 
 % Only keep the image file names and the stop sign ROI labels
 stopSignsTrain = stopSignsAndCars(:, {'imageFilename','stopSign'});
@@ -94,21 +86,22 @@ stopSignsTrain = stopSignsAndCars(:, {'imageFilename','stopSign'});
 % I hate MathWorks.
 load('datasets/stop-signs/stopSignsValidation.mat');
 
-% Set training options
 options = trainingOptions('sgdm', ...
     'MiniBatchSize', 128, ...
     'InitialLearnRate', 1e-3, ...
     'LearnRateSchedule', 'piecewise', ...
     'LearnRateDropFactor', 0.1, ...
     'LearnRateDropPeriod', 100, ...
-    'MaxEpochs', 100, ...
+    'MaxEpochs', 1, ...
     'Plots', 'training-progress', ...
     'Verbose', true);
 
-% Train an R-CNN object detector. This will take several minutes.    
 rcnn = trainRCNNObjectDetector(stopSignsTrain, cifar10Net, options, ...
 'NegativeOverlapRange', [0 0.3], 'PositiveOverlapRange',[0.5 1]);
-% load('models/rcnnv2.mat')
+
+% % If you want to load pretrained model, uncomment the line below, and
+% % comment the trainNetwork line above.
+% load('models/rcnn.mat')
 
 % Testing
 load('datasets/stop-signs/stopSignsTest.mat');
@@ -132,10 +125,12 @@ for i=1:size(stopSignsTest, 1)
     % imshow(outputImage);
 end
 
-test_accuracy = total_iou / size(stopSignsTest, 1);
-disp(['RCNN Accuracy: ', num2str(test_accuracy)]);
+rcnnAccuracy = total_iou / size(stopSignsTest, 1);
+disp(['RCNN Accuracy: ', num2str(rcnnAccuracy)]);
 
 function iou = calculateIoU(boxA, boxB)
+    % Calculates Intersection of Union from given two boxes.
+
     if isempty(boxA) || isempty(boxB)
         iou = 0;
         return;
