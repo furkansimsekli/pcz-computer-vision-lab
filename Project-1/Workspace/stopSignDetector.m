@@ -37,23 +37,36 @@ opts = trainingOptions('sgdm', ...
     'LearnRateDropFactor', 0.1, ...
     'LearnRateDropPeriod', 8, ...
     'L2Regularization', 0.004, ...
-    'MaxEpochs', 1, ...
+    'MaxEpochs', 40, ...
     'MiniBatchSize', 128, ...
     'ValidationData', {validationX, validationY}, ...
     'ValidationPatience', 10, ...
     'Plots', 'training-progress', ...
     'Verbose', true);
 
-% cifar10Net = trainNetwork(trainX, trainY, layers, opts);
+cifar10Net = trainNetwork(trainX, trainY, layers, opts);
 
-% If you want to load pretrained model, uncomment the line below, and
-% comment the trainNetwork line above.
-load('models/cifar10Netv2.mat');
+% % If you want to load pretrained model, uncomment the line below, and
+% % comment the trainNetwork line above.
+% load('models/cifar10Net.mat');
 
 % Testing
 predY = classify(cifar10Net, testX);
 cifar10NetAccuracy = sum(predY == testY)/numel(testY);
 disp(['cifar10Net Accuracy: ', num2str(cifar10NetAccuracy)]);
+
+% Plot example images with predictions and true labels
+numExamples = 6;
+figure;
+
+for i = 1:numExamples
+    subplot(ceil(numExamples / 2), 2, i);
+    idx = randi(size(testX, 4));
+    imshow(testX(:,:,:,idx));
+    trueLabel = char(testY(idx));
+    predictedLabel = char(predY(idx));
+    title(['True: ', trueLabel, ' | Predicted: ', predictedLabel]);
+end
 
 % Confusion matrix
 C = confusionmat(testY, predY);
@@ -101,10 +114,6 @@ metricsTable = table(accuracy', recall', specificity', precision', f1', mcc', ..
 disp('Metrics Table:');
 disp(metricsTable);
 
-figure;
-uitable('Data', table2cell(metricsTable), 'ColumnName', metricsTable.Properties.VariableNames, ...
-    'RowName', metricsTable.Properties.RowNames, 'Units', 'Normalized', 'Position', [0, 0, 1, 1]);
-
 
 
 
@@ -131,6 +140,20 @@ summary(stopSignsAndCars);
 % Only keep the image file names and the stop sign ROI labels
 stopSignsTrain = stopSignsAndCars(:, {'imageFilename','stopSign'});
 
+% Plot example images with rectangles for the training set
+numExamplesTrain = 6;
+figure;
+
+for i = 1:numExamplesTrain
+    subplot(ceil(numExamplesTrain/2), 2, i);
+    idx = randi(size(stopSignsTrain, 1));
+    image = imread(stopSignsTrain.imageFilename{idx});
+    groundTruth = stopSignsTrain.stopSign{idx};
+    imageWithGroundTruth = insertShape(image, 'Rectangle', groundTruth, ...
+        'Color', 'red', 'LineWidth', 4);
+    imshow(imageWithGroundTruth);
+end
+
 % Apparently trainRCNNObjectDetector() doesn't support validation dataset.
 % If in the future, developers get together their mind and stop being lazy
 % you should pass stopSignsValidation as ValidationData in options.
@@ -147,12 +170,12 @@ options = trainingOptions('sgdm', ...
     'Plots', 'training-progress', ...
     'Verbose', true);
 
-% rcnn = trainRCNNObjectDetector(stopSignsTrain, cifar10Net, options, ...
-% 'NegativeOverlapRange', [0 0.3], 'PositiveOverlapRange',[0.5 1]);
+rcnn = trainRCNNObjectDetector(stopSignsTrain, cifar10Net, options, ...
+'NegativeOverlapRange', [0 0.3], 'PositiveOverlapRange',[0.5 1]);
 
-% If you want to load pretrained model, uncomment the line below, and
-% comment the trainNetwork line above.
-load('models/rcnnv2.mat')
+% % If you want to load pretrained model, uncomment the line below, and
+% % comment the trainNetwork line above.
+% load('models/rcnn.mat')
 
 % Testing
 load('datasets/stop-signs/stopSignsTest.mat');
@@ -178,6 +201,28 @@ end
 
 rcnnAccuracy = total_iou / size(stopSignsTest, 1);
 disp(['RCNN Accuracy: ', num2str(rcnnAccuracy)]);
+
+% Plot example images with rectangles for RCNN
+numExamples = 6;
+figure;
+
+for i = 1:numExamples
+    subplot(ceil(numExamples/2), 2, i);
+    idx = randi(size(stopSignsTest, 1));
+    image = imread(stopSignsTest.imageFilename{idx});
+    groundTruth = stopSignsTest.stopSign{idx};
+    imageWithGroundTruth = insertShape(image, 'Rectangle',groundTruth, ...
+        'Color', 'red', 'LineWidth', 4);
+    [bboxes, ~, ~] = detect(rcnn, image, 'MiniBatchSize', 128);
+    
+    if ~isempty(bboxes)
+        imageWithAnnotations = insertShape(imageWithGroundTruth, ...
+            'Rectangle', bboxes(1, :), 'Color', 'green', 'LineWidth', 4);
+        imshow(imageWithAnnotations);
+    else
+        imshow(imageWithGroundTruth);
+    end
+end
 
 function iou = calculateIoU(boxA, boxB)
     % Calculates Intersection of Union from given two boxes.
